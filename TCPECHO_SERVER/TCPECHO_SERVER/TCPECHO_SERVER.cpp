@@ -18,7 +18,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	WSADATA wsa{};
 	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
 	{
-		printf("ERROR : 원속을 초기화 할 수 없습니다.");
+		printf("ERROR : 원속을 초기화 할 수 없습니다.\n");
 		return 0;
 	}
 
@@ -30,6 +30,60 @@ int _tmain(int argc, _TCHAR* argv[])
 	SOCKET hSocket = ::socket(AF_INET, SOCK_STREAM, 0);
 
 	// 2. 포트 바인딩
+	SOCKADDR_IN svraddr{};
+	svraddr.sin_family = AF_INET; // IPv4
+	svraddr.sin_port = htons(25000); // 리틀엔디안을 빅엔디안으로 바꿔주는 작업
+	svraddr.sin_addr.S_un.S_addr = htonl(INADDR_ANY); //  IP주소가 뭐가 되든지 신경쓰지 않겠다.
+	if (::bind(hSocket, (SOCKADDR*)&svraddr, sizeof(svraddr)) == SOCKET_ERROR)
+	{
+		printf("ERROR : 소켓에 IP주소와 포트를 바인딩 할 수 없습니다.\n");
+		return 0;
+	}
+
+	// 3. 접속 대기 상태(listen)으로 전환
+	if (::listen(hSocket, SOMAXCONN) == SOCKET_ERROR) 
+		// SOMAXCONN : 대기처리를 OS에서 다 해주기 때문에 OS레벨에서 할 수 있는만큼 알아서 하라는 의미
+	{
+		printf("ERROR : 리슨 상태로 전환할 수 없습니다.\n");
+		return 0;
+	}
+
+	// 4. 클라이언트 접속 처리 및 대응 
+	SOCKADDR_IN clientaddr{};
+	SOCKET hClient{};
+	int nAddrLen{};
+	char szBuffer[128]{};
+	int	nReceive{};
+
+	nAddrLen = sizeof(clientaddr);
+	// 4-1. 클라이언트 연결을 받아들이고 새로운 소켓 생성(개방)
+	while (hClient = ::accept(hSocket, 
+		(SOCKADDR*)&clientaddr, 
+		&nAddrLen) != INVALID_SOCKET)
+	{
+		printf("새 클라이언트가 연결되었습니다.\n");
+		// 4-2. 클라이언트로부터 문자열을 수신함
+		while (nReceive = ::recv(hClient, szBuffer, sizeof(szBuffer), 0) > 0)
+		{
+			// 4-3. 수신한 문자열을 그대로 반향전송
+			::send(hClient, szBuffer, sizeof(szBuffer), 0); // 클라이언트에게 보내주고
+			printf("%s\n", szBuffer); // 서버쪽 화면에 한번 찍고
+			fflush(stdout); // ?? 
+			memset(szBuffer, 0, sizeof(szBuffer)); // szBuffer 초기화
+		}
+
+		// 클라이언트가 연결을 종료함 
+		shutdown(hClient, SD_BOTH);
+		closesocket(hClient);
+		printf("클라이언트와의 연결이 끊어졌습니다.");
+	}
+	printf("클라이언트와의 연결이 없음.");
+	// 5. 리슨 소켓 닫기
+	::closesocket(hSocket);
+
+	// 원속 해제
+	::WSACleanup();
+
 
 	return 0;
 }
