@@ -1,20 +1,91 @@
 ﻿// FileSenderCRL.cpp : 이 파일에는 'main' 함수가 포함됩니다. 거기서 프로그램 실행이 시작되고 종료됩니다.
 //
 
-#include <iostream>
+#include "stdafx.h"
+#include <winsock2.h>
+#pragma comment(lib, "ws2_32")
 
-int main()
+void ErrorHandler(const char* pszMessage);
+
+int _tmain(int argc, _TCHAR* argv[])
 {
-    std::cout << "Hello World!\n";
+	// 윈속 초기화
+	WSADATA wsa{};
+	if (::WSAStartup(MAKEWORD(2, 2), &wsa))
+		ErrorHandler("윈속을 초기화 할 수 없습니다.");
+
+	// 1. 전송할 파일 개방
+	FILE* fp{};
+	errno_t nResult{};
+	nResult = fopen_s(&fp, "Sleep Away2.zip", "rb");
+	if (nResult != 0)
+		ErrorHandler("전송할 파일을 개방할 수 없습니다.");
+	else
+		puts("전송할 파일을 개방했습니다.\n");
+	
+	
+	// 2. 접속대기 소켓 생성
+	SOCKET hSocket{};
+	hSocket = ::socket(AF_INET, SOCK_STREAM, 0);
+	if (hSocket == INVALID_SOCKET)
+		ErrorHandler("접속 대기 소켓을 생성할 수 없습니다.");
+
+	// 3. 포트 바인딩
+	SOCKADDR_IN svraddr{};
+	svraddr.sin_family = AF_INET;
+	svraddr.sin_port = htons(25000);
+	svraddr.sin_addr.S_un.S_addr = htonl(INADDR_ANY);
+	if (::bind(hSocket, (SOCKADDR*)&svraddr, sizeof(svraddr)) == SOCKET_ERROR)
+		ErrorHandler("소켓에 IP주소와 포트를 바인딩 할 수 없습니다.");
+
+	// 4. 접속 대기 상태로 전환
+	if (::listen(hSocket, SOMAXCONN) == SOCKET_ERROR)
+		ErrorHandler("리슨 상태로 전환할 수 없습니다.");
+
+	puts("파일 송신 서버를 시작합니다.");
+
+	// 5. 클라이언트 연결을 받아들이고 새로운 소켓 개방
+	SOCKADDR_IN clientAddr{};
+	int nAddrLen{};
+	SOCKET hClient{};
+	nAddrLen = sizeof(clientAddr);
+	hClient = ::accept(hSocket, (SOCKADDR*)&clientAddr, &nAddrLen);
+	if (hClient == INVALID_SOCKET)
+		ErrorHandler("클라이언트 통신 소켓을 개방할 수 없습니다.");
+
+	puts("클라이언트가 연결되었습니다.");
+
+	// 파일 송신
+	char byBuffer[65536]{};
+	int nRead{};
+	int nSent{};
+	int i{};
+
+	while ((nRead = fread(byBuffer, sizeof(char), 65536, fp)) > 0)
+	{
+		// 파일에서 읽고 소켓으로 전송한다.
+		// 전송에 성공하더라고 nRead와 nSent는 값이 다를 수 있다!
+		nSent = send(hClient, byBuffer, nRead, 0);
+		printf("[%04d] 전송된 데이터 크기: %d\n", ++i, nSent);
+		fflush(stdout);
+	}
+
+	// 클라이언트가 파일을 수신할 때까지 추정시간을 대기한다.
+	::Sleep(100);
+
+	// 서버가 먼저 연결을 종료
+	::closesocket(hSocket);
+	::closesocket(hClient);
+	puts("클라이언트 연결이 끊겼습니다.");
+
+	fclose(fp);
+	::WSACleanup();
+	return 0;
 }
 
-// 프로그램 실행: <Ctrl+F5> 또는 [디버그] > [디버깅하지 않고 시작] 메뉴
-// 프로그램 디버그: <F5> 키 또는 [디버그] > [디버깅 시작] 메뉴
-
-// 시작을 위한 팁: 
-//   1. [솔루션 탐색기] 창을 사용하여 파일을 추가/관리합니다.
-//   2. [팀 탐색기] 창을 사용하여 소스 제어에 연결합니다.
-//   3. [출력] 창을 사용하여 빌드 출력 및 기타 메시지를 확인합니다.
-//   4. [오류 목록] 창을 사용하여 오류를 봅니다.
-//   5. [프로젝트] > [새 항목 추가]로 이동하여 새 코드 파일을 만들거나, [프로젝트] > [기존 항목 추가]로 이동하여 기존 코드 파일을 프로젝트에 추가합니다.
-//   6. 나중에 이 프로젝트를 다시 열려면 [파일] > [열기] > [프로젝트]로 이동하고 .sln 파일을 선택합니다.
+void ErrorHandler(const char* pszMessage)
+{
+	printf("ERROR : %s\n", pszMessage);
+	::WSACleanup();
+	exit(1);
+}
