@@ -1,0 +1,6 @@
+﻿  EventSelectServer.cpp
+C:\Users\tjddm\OneDrive\바탕 화면\Windows Socket Programming\EventSelectServer\EventSelectServer\EventSelectServer.cpp(137,30): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
+C:\Users\tjddm\OneDrive\바탕 화면\Windows Socket Programming\EventSelectServer\EventSelectServer\EventSelectServer.cpp(155,24): warning C4018: '<': signed 또는 unsigned가 일치하지 않습니다.
+  stdafxcpp.cpp
+  코드를 생성하고 있습니다...
+  EventSelectServer.vcxproj -> C:\Users\tjddm\OneDrive\바탕 화면\Windows Socket Programming\EventSelectServer\Debug\EventSelectServer.exe
